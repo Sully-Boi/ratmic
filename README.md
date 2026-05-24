@@ -1,6 +1,8 @@
-# 🐀 RatMic
-
-**Make your microphone sound gloriously, intentionally terrible — in real time.**
+<div align="center">
+  <img src="assets/logo.png" alt="RatMic logo" width="128" height="128" />
+  <h1>RatMic</h1>
+  <p><strong>Make your microphone sound gloriously, intentionally terrible — in real time.</strong></p>
+</div>
 
 RatMic is a Windows desktop app that captures your real microphone, runs it through a chain of cursed audio effects (bitcrushing, packet loss, distortion, hum, broken gate, and more), and feeds the mangled result into Discord, games, OBS, or anything else that takes a mic input.
 
