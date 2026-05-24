@@ -4,3 +4,12 @@ src-tauri/target/
 *.log
 .env
 .DS_Store
+
+# Internal design docs (specs/plans) — kept locally, not shipped
+docs/
+
+# AI assistant working files
+.claude/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
