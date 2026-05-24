@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import type { Settings, MeterEvent, ChainSlotView, PresetSummary } from "./ipc";
+import type { Settings, MeterEvent, ChainSlotView, PresetSummary, HotkeyConfig } from "./ipc";
 
 export const settings = writable<Settings | null>(null);
 export const inputDeviceId = writable<string | null>(null);
@@ -19,3 +19,5 @@ export const presets = writable<PresetSummary[]>([]);
 export const monitorDeviceId = writable<string | null>(null);
 export const monitorEnabled = writable<boolean>(false);
 export const showSetup = writable<boolean>(false);
+export const effectsEnabled = writable<boolean>(true);
+export const hotkey = writable<HotkeyConfig | null>(null);

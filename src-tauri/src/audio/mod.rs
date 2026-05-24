@@ -4,5 +4,6 @@ pub mod format;
 pub mod input_stream;
 pub mod meters;
 pub mod output_backend;
+pub mod resampler;
 pub mod ring_buffer;
 pub mod system_output;

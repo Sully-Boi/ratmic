@@ -3,6 +3,7 @@
   import { ipc } from "../ipc";
   import { presets, chain, engineRunning } from "../stores";
   import SavePresetDialog from "./SavePresetDialog.svelte";
+  import { categoryColor } from "../format/effect-meta";
 
   let saveOpen = false;
   let busy = false;
@@ -82,11 +83,17 @@
 {/if}
 
 <h4>Built-in</h4>
-<ul class="list">
+<ul class="cards">
   {#each builtIns as p}
     <li>
-      <button class="item" on:click={() => load(p.name, true)} title={p.description ?? ""}>
-        {p.name}
+      <button class="card" on:click={() => load(p.name, true)}>
+        <span class="title">{p.name}</span>
+        {#if p.description}<span class="desc">{p.description}</span>{/if}
+        <span class="dots">
+          {#each p.effect_types as t}
+            <span class="dot" style="background: {categoryColor(t)}"></span>
+          {/each}
+        </span>
       </button>
     </li>
   {/each}
@@ -96,13 +103,19 @@
 {#if userPresets.length === 0}
   <p class="muted">(none yet)</p>
 {:else}
-  <ul class="list">
+  <ul class="cards">
     {#each userPresets as p}
-      <li class="row">
-        <button class="item" on:click={() => load(p.name, false)} title={p.description ?? ""}>
-          {p.name}
+      <li class="user">
+        <button class="card" on:click={() => load(p.name, false)}>
+          <span class="title">{p.name}</span>
+          {#if p.description}<span class="desc">{p.description}</span>{/if}
+          <span class="dots">
+            {#each p.effect_types as t}
+              <span class="dot" style="background: {categoryColor(t)}"></span>
+            {/each}
+          </span>
         </button>
-        <button class="x" title="delete" on:click={() => del(p.name)}>×</button>
+        <button class="del" title="Delete preset" on:click={() => del(p.name)}>×</button>
       </li>
     {/each}
   </ul>
@@ -126,37 +139,55 @@
   .save-btn { width: 100%; margin-bottom: 0.5rem; font-size: 12px; }
   .err { color: var(--danger); font-size: 11px; margin: 0.25rem 0; }
   .muted { color: var(--text-2); font-size: 12px; margin: 0; }
-  .list {
+  .cards {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.3rem;
   }
-  .row {
-    display: flex;
-    gap: 0.25rem;
-  }
-  .item {
-    flex: 1;
+  .cards li { position: relative; }
+  .card {
+    width: 100%;
     text-align: left;
     background: var(--bg-2);
     border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
     color: var(--text-0);
-    padding: 0.35rem 0.5rem;
-    border-radius: 4px;
-    font: inherit;
-    cursor: pointer;
   }
-  .item:hover { background: var(--bg-3); }
-  .x {
-    width: 24px;
-    background: var(--bg-2);
+  .card:hover { background: var(--bg-3); }
+  .title { font-weight: 600; font-size: 12px; }
+  .desc {
+    font-size: 11px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dots { display: flex; gap: 3px; margin-top: 1px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 4px;
+    background: var(--bg-3);
     border: 1px solid var(--border);
-    color: var(--text-1);
-    border-radius: 4px;
+    color: var(--text-2);
+    opacity: 0;
     cursor: pointer;
   }
-  .x:hover { background: var(--danger); color: white; }
+  .user:hover .del { opacity: 1; }
+  .del:hover { background: var(--danger); color: #fff; }
 </style>

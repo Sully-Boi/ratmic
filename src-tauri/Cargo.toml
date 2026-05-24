@@ -27,6 +27,12 @@ fastrand = "2"
 log = "0.4"
 env_logger = "0.11"
 tauri-plugin-opener = "2.5.4"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+global-hotkey = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging"] }
 
 [profile.release]
 panic = "abort"

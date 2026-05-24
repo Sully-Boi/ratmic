@@ -1,10 +1,13 @@
 use parking_lot::Mutex;
 use serde_json::Value as Json;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::audio::devices::{list_devices, DeviceInfo};
 use crate::audio::engine::{AudioEngine, MeterSink, MeterSnapshot};
 use crate::events::{EngineStateEvent, MeterEvent, EVENT_ENGINE_STATE, EVENT_METERS};
+use crate::settings::HotkeyConfig;
 use crate::presets::builtin;
 use crate::presets::schema::{EffectInstance, Preset};
 use crate::presets::user;
@@ -12,12 +15,16 @@ use crate::settings::Settings;
 
 pub struct AppState {
     pub engine: Mutex<Option<AudioEngine>>,
+    pub effects_enabled: Arc<AtomicBool>,
+    pub hotkey: Mutex<Option<crate::hotkeys::HotkeyHandle>>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
             engine: Mutex::new(None),
+            effects_enabled: Arc::new(AtomicBool::new(true)),
+            hotkey: Mutex::new(None),
         }
     }
 }
@@ -81,6 +88,7 @@ pub fn start_engine(
         &output_id,
         monitor_id.as_deref(),
         monitor_enabled,
+        state.effects_enabled.clone(),
         sink,
     )
     .map_err(|e| e.to_string())?;
@@ -190,9 +198,7 @@ pub fn set_effect_params(
     let Some(engine) = guard.as_ref() else {
         return Err("engine not running".into());
     };
-    let result = engine
-        .chain
-        .lock()
+    let result = engine.chain.lock()
         .set_params(index, &params)
         .map_err(|e| e.to_string());
     result
@@ -203,17 +209,31 @@ pub struct PresetSummary {
     pub name: String,
     pub description: Option<String>,
     pub builtin: bool,
+    pub effect_types: Vec<String>,
 }
 
 #[tauri::command]
 pub fn list_presets() -> Result<Vec<PresetSummary>, String> {
+    fn types(p: &crate::presets::schema::Preset) -> Vec<String> {
+        p.effects.iter().filter(|e| e.enabled).map(|e| e.type_.clone()).collect()
+    }
     let mut out: Vec<PresetSummary> = builtin::all()
         .into_iter()
-        .map(|p| PresetSummary { name: p.name, description: p.description, builtin: true })
+        .map(|p| PresetSummary {
+            effect_types: types(&p),
+            name: p.name,
+            description: p.description,
+            builtin: true,
+        })
         .collect();
     let users = user::list().map_err(|e| e.to_string())?;
     for p in users {
-        out.push(PresetSummary { name: p.name, description: p.description, builtin: false });
+        out.push(PresetSummary {
+            effect_types: types(&p),
+            name: p.name,
+            description: p.description,
+            builtin: false,
+        });
     }
     Ok(out)
 }
@@ -314,3 +334,69 @@ pub fn remove_effect(state: State<'_, AppState>, index: usize) -> Result<bool, S
     };
     Ok(engine.remove_effect(index))
 }
+
+#[tauri::command]
+pub fn reorder_effects(
+    state: State<'_, AppState>,
+    from: usize,
+    to: usize,
+) -> Result<bool, String> {
+    let guard = state.engine.lock();
+    let Some(engine) = guard.as_ref() else {
+        return Err("engine not running".into());
+    };
+    Ok(engine.reorder_effects(from, to))
+}
+
+#[tauri::command]
+pub fn set_effects_enabled(state: State<'_, AppState>, enabled: bool) {
+    state.effects_enabled.store(enabled, Ordering::Relaxed);
+}
+
+#[tauri::command]
+pub fn effects_enabled(state: State<'_, AppState>) -> bool {
+    state.effects_enabled.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn set_hotkey(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    config: HotkeyConfig,
+) -> Result<(), String> {
+    // Replace any existing registration.
+    let mut guard = state.hotkey.lock();
+    if let Some(existing) = guard.take() {
+        existing.unregister();
+    }
+    let mgr = crate::hotkeys::HotkeyHandle::register(
+        &config,
+        state.effects_enabled.clone(),
+        app.clone(),
+    )
+    .map_err(|e| e.to_string())?;
+    *guard = Some(mgr);
+    drop(guard);
+
+    // Persist.
+    let mut s = Settings::load().map_err(|e| e.to_string())?;
+    s.hotkey = Some(config);
+    s.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn clear_hotkey(state: State<'_, AppState>) -> Result<(), String> {
+    let mut guard = state.hotkey.lock();
+    if let Some(existing) = guard.take() {
+        existing.unregister();
+    }
+    drop(guard);
+    // Re-enable effects so the app isn't stuck bypassed.
+    state.effects_enabled.store(true, Ordering::Relaxed);
+    let mut s = Settings::load().map_err(|e| e.to_string())?;
+    s.hotkey = None;
+    s.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+

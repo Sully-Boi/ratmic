@@ -5,6 +5,33 @@ use std::path::PathBuf;
 
 pub const SETTINGS_SCHEMA_VERSION: u32 = 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HotkeyMode {
+    Hold,
+    Toggle,
+}
+
+impl Default for HotkeyMode {
+    fn default() -> Self {
+        Self::Toggle
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HotkeyConfig {
+    /// W3C KeyboardEvent.code value, e.g. "F8", "KeyR".
+    pub code: String,
+    #[serde(default)]
+    pub ctrl: bool,
+    #[serde(default)]
+    pub alt: bool,
+    #[serde(default)]
+    pub shift: bool,
+    #[serde(default)]
+    pub mode: HotkeyMode,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     #[serde(default = "default_schema_version")]
@@ -17,21 +44,16 @@ pub struct Settings {
     pub monitor_enabled: bool,
     #[serde(default)]
     pub monitor_device_id: Option<String>,
-    // Default true: hearing-safe fallback when field is missing from an old config.
-    #[serde(default = "default_true")]
-    pub safe_output_mode: bool,
     #[serde(default)]
     pub last_preset_name: Option<String>,
     #[serde(default)]
     pub onboarding_seen: bool,
+    #[serde(default)]
+    pub hotkey: Option<HotkeyConfig>,
 }
 
 fn default_schema_version() -> u32 {
     SETTINGS_SCHEMA_VERSION
-}
-
-fn default_true() -> bool {
-    true
 }
 
 impl Default for Settings {
@@ -42,9 +64,9 @@ impl Default for Settings {
             output_device_id: None,
             monitor_enabled: false,
             monitor_device_id: None,
-            safe_output_mode: true,
             last_preset_name: None,
             onboarding_seen: false,
+            hotkey: None,
         }
     }
 }
@@ -89,9 +111,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_has_safe_output_mode_on() {
+    fn default_schema_version_is_set() {
         let s = Settings::default();
-        assert!(s.safe_output_mode);
         assert_eq!(s.schema_version, SETTINGS_SCHEMA_VERSION);
     }
 
@@ -103,9 +124,9 @@ mod tests {
             output_device_id: Some("CABLE Input (VB-Audio)".to_string()),
             monitor_enabled: true,
             monitor_device_id: Some("Headphones (Realtek)".to_string()),
-            safe_output_mode: false,
             last_preset_name: None,
             onboarding_seen: false,
+            hotkey: None,
         };
         let json = serde_json::to_string(&s).unwrap();
         let parsed: Settings = serde_json::from_str(&json).unwrap();
@@ -117,7 +138,7 @@ mod tests {
         let json = r#"{ "schema_version": 1 }"#;
         let parsed: Settings = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.input_device_id, None);
-        assert!(parsed.safe_output_mode);
+        assert_eq!(parsed.last_preset_name, None);
     }
 
     #[test]
@@ -128,6 +149,22 @@ mod tests {
     }
 
     #[test]
+    fn hotkey_config_round_trips() {
+        let cfg = HotkeyConfig {
+            code: "F8".into(),
+            ctrl: true,
+            alt: false,
+            shift: false,
+            mode: HotkeyMode::Hold,
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: HotkeyConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(cfg, back);
+        // Mode serializes lowercase.
+        assert!(json.contains("\"hold\""));
+    }
+
+    #[test]
     fn last_preset_name_round_trips() {
         let s = Settings {
             schema_version: 1,
@@ -135,9 +172,9 @@ mod tests {
             output_device_id: None,
             monitor_enabled: false,
             monitor_device_id: None,
-            safe_output_mode: true,
             last_preset_name: Some("Tin Can".into()),
             onboarding_seen: false,
+            hotkey: None,
         };
         let json = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&json).unwrap();

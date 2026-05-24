@@ -3,6 +3,20 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export type DeviceKind = "Input" | "Output";
 
+export type HotkeyMode = "hold" | "toggle";
+
+export interface HotkeyConfig {
+  code: string;
+  ctrl: boolean;
+  alt: boolean;
+  shift: boolean;
+  mode: HotkeyMode;
+}
+
+export interface EffectsStateEvent {
+  enabled: boolean;
+}
+
 export interface DeviceInfo {
   name: string;
   kind: DeviceKind;
@@ -16,15 +30,16 @@ export interface Settings {
   output_device_id: string | null;
   monitor_enabled: boolean;
   monitor_device_id: string | null;
-  safe_output_mode: boolean;
   last_preset_name: string | null;
   onboarding_seen: boolean;
+  hotkey: HotkeyConfig | null;
 }
 
 export interface PresetSummary {
   name: string;
   description: string | null;
   builtin: boolean;
+  effect_types: string[];
 }
 
 export interface MeterEvent {
@@ -71,10 +86,17 @@ export const ipc = {
     invoke<void>("add_effect", { typeName }),
   removeEffect: (index: number) =>
     invoke<boolean>("remove_effect", { index }),
+  reorderEffects: (from: number, to: number) =>
+    invoke<boolean>("reorder_effects", { from, to }),
   setMonitorEnabled: (enabled: boolean) =>
     invoke<void>("set_monitor_enabled", { enabled }),
   setMonitorDevice: (monitorId: string | null) =>
     invoke<void>("set_monitor_device", { monitorId }),
+  setHotkey: (config: HotkeyConfig) => invoke<void>("set_hotkey", { config }),
+  clearHotkey: () => invoke<void>("clear_hotkey"),
+  setEffectsEnabled: (enabled: boolean) =>
+    invoke<void>("set_effects_enabled", { enabled }),
+  effectsEnabled: () => invoke<boolean>("effects_enabled"),
 };
 
 export const events = {
@@ -82,4 +104,6 @@ export const events = {
     listen<MeterEvent>("meters", (e) => cb(e.payload)),
   onEngineState: (cb: (e: EngineStateEvent) => void): Promise<UnlistenFn> =>
     listen<EngineStateEvent>("engine-state", (e) => cb(e.payload)),
+  onEffectsState: (cb: (e: EffectsStateEvent) => void): Promise<UnlistenFn> =>
+    listen<EffectsStateEvent>("effects-state", (e) => cb(e.payload)),
 };

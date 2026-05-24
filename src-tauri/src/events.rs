@@ -2,6 +2,7 @@ use serde::Serialize;
 
 pub const EVENT_METERS: &str = "meters";
 pub const EVENT_ENGINE_STATE: &str = "engine-state";
+pub const EVENT_EFFECTS_STATE: &str = "effects-state";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MeterEvent {
@@ -16,4 +17,9 @@ pub struct MeterEvent {
 pub struct EngineStateEvent {
     pub running: bool,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EffectsStateEvent {
+    pub enabled: bool,
 }

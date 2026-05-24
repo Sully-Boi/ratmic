@@ -4,9 +4,9 @@
   import DeviceStrip from "./lib/components/DeviceStrip.svelte";
   import Meter from "./lib/components/Meter.svelte";
   import EffectChain from "./lib/components/EffectChain.svelte";
-  import EffectParams from "./lib/components/EffectParams.svelte";
   import PresetSidebar from "./lib/components/PresetSidebar.svelte";
   import SetupWizard from "./lib/components/SetupWizard.svelte";
+  import UpdatePrompt from "./lib/components/UpdatePrompt.svelte";
   import { ipc, events } from "./lib/ipc";
   import {
     settings,
@@ -18,11 +18,54 @@
     monitorDeviceId,
     monitorEnabled,
     showSetup,
+    presets,
+    chain,
+    effectsEnabled,
+    hotkey,
   } from "./lib/stores";
   import { isVirtualCable } from "./lib/format/devices";
   import type { UnlistenFn } from "@tauri-apps/api/event";
 
   let unsubs: UnlistenFn[] = [];
+
+  // Task 2: Device-disconnect watcher state.
+  let deviceWatch: ReturnType<typeof setInterval> | null = null;
+
+  async function checkDevices() {
+    try {
+      const devs = await ipc.listDevices();
+      const ids = new Set(devs.map((d) => d.id));
+      if ($inputDeviceId && !ids.has($inputDeviceId)) {
+        await failDevice("Input", $inputDeviceId);
+      } else if ($outputDeviceId && !ids.has($outputDeviceId)) {
+        await failDevice("Output", $outputDeviceId);
+      } else if ($monitorEnabled && $monitorDeviceId && !ids.has($monitorDeviceId)) {
+        // Monitor gone: don't kill the whole engine, just warn.
+        engineError.set(`Monitor device disconnected (${$monitorDeviceId})`);
+      }
+    } catch (_) {
+      // listing failed transiently — ignore this tick
+    }
+  }
+
+  async function failDevice(kind: string, id: string) {
+    try {
+      await ipc.stopEngine();
+    } catch (_) {
+      /* ignore */
+    }
+    engineError.set(`${kind} device disconnected (${id}) — engine stopped`);
+  }
+
+  // Start/stop the watcher when engine state changes.
+  $: {
+    if ($engineRunning && deviceWatch === null) {
+      deviceWatch = setInterval(checkDevices, 2000);
+    } else if (!$engineRunning && deviceWatch !== null) {
+      clearInterval(deviceWatch);
+      deviceWatch = null;
+    }
+  }
 
   // setupOpen follows the showSetup store; closing also writes to the store.
   $: setupOpen = $showSetup;
@@ -34,6 +77,8 @@
     if (s.output_device_id) outputDeviceId.set(s.output_device_id);
     if (s.monitor_device_id) monitorDeviceId.set(s.monitor_device_id);
     monitorEnabled.set(s.monitor_enabled);
+    hotkey.set(s.hotkey ?? null);
+    effectsEnabled.set(await ipc.effectsEnabled());
 
     engineRunning.set(await ipc.engineRunning());
 
@@ -58,6 +103,7 @@
         engineError.set(s.error);
       })
     );
+    unsubs.push(await events.onEffectsState((e) => effectsEnabled.set(e.enabled)));
   });
 
   async function closeSetup() {
@@ -67,7 +113,10 @@
     await ipc.saveSettings(s);
   }
 
-  onDestroy(() => unsubs.forEach((u) => u()));
+  onDestroy(() => {
+    unsubs.forEach((u) => u());
+    if (deviceWatch !== null) clearInterval(deviceWatch);
+  });
 
   async function toggleEngine() {
     engineError.set(null);
@@ -88,6 +137,18 @@
         s.monitor_device_id = $monitorDeviceId;
         s.monitor_enabled = $monitorEnabled;
         await ipc.saveSettings(s);
+        // Task 1: Auto-restore the last-used preset so the app resumes where it left off.
+        if (s.last_preset_name) {
+          const match = $presets.find((p) => p.name === s.last_preset_name);
+          if (match) {
+            try {
+              await ipc.loadPreset(s.last_preset_name, match.builtin);
+              chain.set(await ipc.getChain());
+            } catch (_) {
+              // Preset may have been deleted since last session — ignore.
+            }
+          }
+        }
       }
     } catch (e) {
       engineError.set(String(e));
@@ -102,7 +163,6 @@
   <main class="body">
     <aside class="sidebar"><PresetSidebar /></aside>
     <section class="chain"><EffectChain /></section>
-    <aside class="params"><EffectParams /></aside>
   </main>
 
   <footer class="bottom-bar">
@@ -112,6 +172,9 @@
       <span class="dot" />
       <span>LIM</span>
       <span class="pct tabular">{Math.round($meters.limiter_activity_pct)}%</span>
+    </div>
+    <div class="fx" class:bypassed={!$effectsEnabled}>
+      {$effectsEnabled ? "FX ON" : "BYPASSED"}
     </div>
     <div class="spacer"></div>
     {#if $engineError}<span class="err">{$engineError}</span>{/if}
@@ -126,13 +189,13 @@
 </div>
 
 <SetupWizard open={setupOpen} onClose={closeSetup} />
+<UpdatePrompt />
 
 <style>
   .shell { display: grid; grid-template-rows: 36px 40px 1fr 64px; height: 100%; }
-  .body { display: grid; grid-template-columns: 180px 1fr 280px; min-height: 0; }
-  .sidebar, .chain, .params { padding: 0.75rem; overflow: auto; }
+  .body { display: grid; grid-template-columns: 220px 1fr; min-height: 0; }
+  .sidebar, .chain { padding: 0.75rem; overflow: auto; }
   .sidebar { background: var(--bg-1); border-right: 1px solid var(--border); }
-  .params { background: var(--bg-1); border-left: 1px solid var(--border); }
   .bottom-bar {
     display: flex;
     align-items: center;
@@ -145,6 +208,14 @@
     overflow: hidden;
   }
   .spacer { flex: 1; min-width: 0; }
+  .fx {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .fx.bypassed { color: var(--text-2); }
   .err {
     color: var(--danger);
     font-size: 12px;

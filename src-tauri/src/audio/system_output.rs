@@ -6,6 +6,7 @@ use cpal::{SampleFormat, Stream, StreamConfig};
 
 use super::format::{f32_to_i16, mono_to_interleaved, AudioFormat};
 use super::output_backend::AudioOutputBackend;
+use super::resampler::LinearResampler;
 use super::ring_buffer::{AudioRing, RingProducer};
 
 pub struct SystemDeviceBackend {
@@ -18,6 +19,11 @@ pub struct SystemDeviceBackend {
     ring_capacity: usize,
     /// Scratch for upmix.
     scratch: Vec<f32>,
+    /// Resamples the worker's source-rate (INTERNAL_SAMPLE_RATE) samples to the
+    /// device's native rate. Created in `open` once the device rate is known.
+    resampler: Option<LinearResampler>,
+    /// Scratch buffer for resampled samples.
+    rs_scratch: Vec<f32>,
 }
 
 // cpal::Stream on Windows contains a *mut () (WASAPI internals) which is !Send.
@@ -37,6 +43,8 @@ impl SystemDeviceBackend {
             format: None,
             ring_capacity: 4096,
             scratch: Vec::with_capacity(4096),
+            resampler: None,
+            rs_scratch: Vec::with_capacity(4096),
         }
     }
 }
@@ -51,18 +59,7 @@ impl AudioOutputBackend for SystemDeviceBackend {
             .device
             .default_output_config()
             .context("getting default output config")?;
-        let actual_format = AudioFormat {
-            sample_rate: supported.sample_rate().0,
-            channels: supported.channels(),
-        };
-        if actual_format.sample_rate != format.sample_rate {
-            log::warn!(
-                "Output device SR ({}) differs from requested ({}); resampling will be added later. \
-                 For Phase 1 pick devices that share SR.",
-                actual_format.sample_rate,
-                format.sample_rate
-            );
-        }
+        let device_rate = supported.sample_rate().0;
         let config: StreamConfig = supported.config();
         let channels = config.channels;
 
@@ -120,6 +117,7 @@ impl AudioOutputBackend for SystemDeviceBackend {
             sample_rate: config.sample_rate.0,
             channels,
         });
+        self.resampler = Some(LinearResampler::new(format.sample_rate, device_rate));
         Ok(())
     }
 
@@ -127,14 +125,31 @@ impl AudioOutputBackend for SystemDeviceBackend {
         let fmt = self
             .format
             .ok_or_else(|| anyhow!("backend not opened"))?;
+
+        // Resample source-rate (48k) → device rate if needed.
+        let needs_resample = self
+            .resampler
+            .as_ref()
+            .map(|r| !r.is_identity())
+            .unwrap_or(false);
+        if needs_resample {
+            let r = self.resampler.as_mut().unwrap();
+            r.process(samples, &mut self.rs_scratch);
+        }
+        let resampled: &[f32] = if needs_resample {
+            &self.rs_scratch
+        } else {
+            samples
+        };
+
         let producer = self
             .producer
             .as_mut()
             .ok_or_else(|| anyhow!("backend not opened"))?;
         if fmt.channels <= 1 {
-            return Ok(producer.push(samples));
+            return Ok(producer.push(resampled));
         }
-        mono_to_interleaved(samples, fmt.channels, &mut self.scratch);
+        mono_to_interleaved(resampled, fmt.channels, &mut self.scratch);
         Ok(producer.push(&self.scratch))
     }
 

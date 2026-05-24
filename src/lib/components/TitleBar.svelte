@@ -2,12 +2,24 @@
   import RoutingHealthDot from "./RoutingHealthDot.svelte";
   import WindowControls from "./WindowControls.svelte";
   import ratIcon from "../icons/ratmic.png";
+  import { getVersion } from "@tauri-apps/api/app";
+  import { onMount } from "svelte";
+
+  let version = "";
+  onMount(async () => {
+    try {
+      version = await getVersion();
+    } catch (_) {
+      version = "";
+    }
+  });
 </script>
 
 <div class="titlebar" data-tauri-drag-region>
   <div class="brand" data-tauri-drag-region>
     <img class="rat" src={ratIcon} alt="" draggable="false" />
     <span class="name">RatMic</span>
+    {#if version}<span class="version">v{version}</span>{/if}
   </div>
   <div class="spacer" data-tauri-drag-region></div>
   <div class="health" data-tauri-drag-region>
@@ -44,6 +56,12 @@
     -webkit-user-drag: none;
   }
   .name {
+    letter-spacing: 0.02em;
+  }
+  .version {
+    font-size: 10px;
+    color: var(--text-2);
+    font-weight: 500;
     letter-spacing: 0.02em;
   }
   .spacer {

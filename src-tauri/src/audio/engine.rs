@@ -56,6 +56,7 @@ impl AudioEngine {
         output_id: &str,
         monitor_device_id: Option<&str>,
         monitor_enabled_initial: bool,
+        effects_enabled: Arc<AtomicBool>,
         meter_sink: S,
     ) -> Result<Self> {
         if input_id == output_id {
@@ -67,7 +68,7 @@ impl AudioEngine {
             .with_context(|| format!("opening output device {output_id}"))?;
 
         let (in_prod, in_cons) = AudioRing::new(INPUT_RING_CAPACITY);
-        let input_stream = InputStream::open(&input_device, in_prod)
+        let input_stream = InputStream::open(&input_device, in_prod, INTERNAL_SAMPLE_RATE)
             .context("opening input stream")?;
 
         let mut backend = SystemDeviceBackend::new(output_device);
@@ -109,10 +110,11 @@ impl AudioEngine {
             let monitor_slot = monitor_slot.clone();
             let monitor_enabled = monitor_enabled.clone();
             let chain = chain.clone();
+            let effects_enabled = effects_enabled.clone();
             thread::Builder::new()
                 .name("ratmic-audio-worker".into())
                 .spawn(move || {
-                    worker_loop(in_cons, backend, monitor_slot, monitor_enabled, chain, meter_sink, stop);
+                    worker_loop(in_cons, backend, monitor_slot, monitor_enabled, chain, effects_enabled, meter_sink, stop);
                 })
                 .context("spawning audio worker")?
         };
@@ -203,6 +205,12 @@ impl AudioEngine {
         let mut guard = self.chain.lock();
         guard.remove(index)
     }
+
+    /// Reorder a non-limiter slot from `from` to `to`. Returns true on success.
+    pub fn reorder_effects(&self, from: usize, to: usize) -> bool {
+        let mut guard = self.chain.lock();
+        guard.move_slot(from, to)
+    }
 }
 
 fn worker_loop<S: MeterSink>(
@@ -211,6 +219,7 @@ fn worker_loop<S: MeterSink>(
     monitor_slot: Arc<Mutex<Option<Box<dyn AudioOutputBackend>>>>,
     monitor_enabled: Arc<AtomicBool>,
     chain: Arc<Mutex<EffectChain>>,
+    effects_enabled: Arc<AtomicBool>,
     sink: S,
     stop: Arc<AtomicBool>,
 ) {
@@ -234,12 +243,16 @@ fn worker_loop<S: MeterSink>(
         let chunk = &mut buffer[..n];
         in_meter.process(chunk);
 
-        let mut chain_guard = chain.lock();
-        chain_guard.process(chunk);
-        let was_active = chain_guard.limiter_was_active();
-        drop(chain_guard);
-
-        activity_history[activity_write] = was_active;
+        if effects_enabled.load(Ordering::Relaxed) {
+            let mut chain_guard = chain.lock();
+            chain_guard.process(chunk);
+            let was_active = chain_guard.limiter_was_active();
+            drop(chain_guard);
+            activity_history[activity_write] = was_active;
+        } else {
+            // Bypassed: clean passthrough, no limiter activity.
+            activity_history[activity_write] = false;
+        }
         activity_write = (activity_write + 1) % ACTIVITY_HISTORY;
 
         out_meter.process(chunk);

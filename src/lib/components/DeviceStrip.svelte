@@ -3,6 +3,7 @@
   import { ipc, type DeviceInfo } from "../ipc";
   import { inputDeviceId, outputDeviceId, monitorDeviceId, monitorEnabled, engineRunning, showSetup } from "../stores";
   import PillToggle from "./PillToggle.svelte";
+  import HotkeyConfig from "./HotkeyConfig.svelte";
 
   let inputs: DeviceInfo[] = [];
   let outputs: DeviceInfo[] = [];
@@ -89,6 +90,7 @@
     />
   </div>
 
+  <HotkeyConfig />
   <button class="refresh-btn" on:click={refresh} title="Refresh device list">↻</button>
   <button class="setup-btn" on:click={() => showSetup.set(true)} title="Open setup wizard">?</button>
   {#if loadError}<span class="err">{loadError}</span>{/if}

@@ -13,6 +13,7 @@ const RAW_PRESETS: &[(&str, &str)] = &[
     ("Underwater",           include_str!("builtin_json/underwater.json")),
     ("Fan Noise Hell",       include_str!("builtin_json/fan-noise-hell.json")),
     ("2007 Skype Call",      include_str!("builtin_json/2007-skype-call.json")),
+    ("Blown Mic",            include_str!("builtin_json/blown-mic.json")),
 ];
 
 pub fn all() -> Vec<Preset> {
@@ -40,7 +41,7 @@ mod tests {
     #[test]
     fn all_built_in_presets_parse() {
         let presets = all();
-        assert_eq!(presets.len(), 10, "expected 10 built-in presets");
+        assert_eq!(presets.len(), 11, "expected 11 built-in presets");
     }
 
     #[test]

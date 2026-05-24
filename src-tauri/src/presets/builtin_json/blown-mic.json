@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "name": "Blown Mic",
+  "description": "Cranked gain, hard clipping — loud and peaking.",
+  "effects": [
+    { "type": "gain", "enabled": true, "params": { "gainDb": 18 } },
+    { "type": "bandpass", "enabled": true, "params": { "lowCutHz": 120, "highCutHz": 16000, "midBoostDb": 3 } },
+    { "type": "clipper", "enabled": true, "params": { "drive": 9, "hardClip": 0.85, "softClip": 0.15, "outputTrimDb": 0 } }
+  ]
+}

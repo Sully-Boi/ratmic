@@ -135,6 +135,33 @@ impl EffectChain {
             .unwrap_or(false)
     }
 
+    /// Move the slot at `from` to index `to`, preserving effect instances.
+    /// `to` is interpreted as the destination index AFTER the element is removed.
+    /// Refuses (returns false) if either index is out of range, or if `from`/`to`
+    /// would move or displace the fixed Limiter slot.
+    pub fn move_slot(&mut self, from: usize, to: usize) -> bool {
+        let n = self.slots.len();
+        if from >= n || to >= n {
+            return false;
+        }
+        let limiter_idx = self
+            .slots
+            .iter()
+            .rposition(|s| s.effect.type_name() == "limiter");
+        if let Some(li) = limiter_idx {
+            // Cannot move the limiter itself, nor place anything at/after it.
+            if from == li || to >= li {
+                return false;
+            }
+        }
+        if from == to {
+            return true;
+        }
+        let slot = self.slots.remove(from);
+        self.slots.insert(to, slot);
+        true
+    }
+
     /// Remove the slot at `index`. Refuses to remove the Limiter (returns false).
     pub fn remove(&mut self, index: usize) -> bool {
         if let Some(slot) = self.slots.get(index) {
@@ -269,6 +296,67 @@ mod tests {
         assert_eq!(view.len(), 2);
         assert_eq!(view[0].0, "gain");
         assert_eq!(view[1].0, "limiter");
+    }
+
+    #[test]
+    fn move_slot_reorders_preserving_limiter_last() {
+        use crate::effects::gain::{Gain, GainParams};
+        use crate::effects::clipper::{Clipper, ClipperParams};
+        use crate::effects::bitcrusher::{Bitcrusher, BitcrusherParams};
+        let mut c = EffectChain::new(48000);
+        c.rebuild_from_slots(48000, vec![
+            (Box::new(Gain::new(GainParams::default())), true),
+            (Box::new(Clipper::new(ClipperParams::default())), true),
+            (Box::new(Bitcrusher::new(48000, BitcrusherParams::default())), true),
+        ]);
+        // chain: [gain, clipper, bitcrusher, limiter]
+        // move gain (0) to index 2 → [clipper, bitcrusher, gain, limiter]
+        assert!(c.move_slot(0, 2));
+        let view = c.slots_view();
+        let types: Vec<&str> = view.iter().map(|s| s.0).collect();
+        assert_eq!(types, vec!["clipper", "bitcrusher", "gain", "limiter"]);
+    }
+
+    #[test]
+    fn move_slot_refuses_to_move_limiter() {
+        use crate::effects::gain::{Gain, GainParams};
+        let mut c = EffectChain::new(48000);
+        c.rebuild_from_slots(48000, vec![(Box::new(Gain::new(GainParams::default())), true)]);
+        // chain: [gain, limiter]; limiter is index 1
+        assert!(!c.move_slot(1, 0), "must refuse to move the limiter");
+        let types: Vec<&str> = c.slots_view().iter().map(|s| s.0).collect();
+        assert_eq!(types, vec!["gain", "limiter"]);
+    }
+
+    #[test]
+    fn move_slot_refuses_target_at_or_after_limiter() {
+        use crate::effects::gain::{Gain, GainParams};
+        use crate::effects::clipper::{Clipper, ClipperParams};
+        let mut c = EffectChain::new(48000);
+        c.rebuild_from_slots(48000, vec![
+            (Box::new(Gain::new(GainParams::default())), true),
+            (Box::new(Clipper::new(ClipperParams::default())), true),
+        ]);
+        // chain: [gain, clipper, limiter]; limiter index 2
+        assert!(!c.move_slot(0, 2), "must refuse to displace the limiter");
+        let types: Vec<&str> = c.slots_view().iter().map(|s| s.0).collect();
+        assert_eq!(types, vec!["gain", "clipper", "limiter"]);
+    }
+
+    #[test]
+    fn move_slot_out_of_range_is_false() {
+        let mut c = EffectChain::new(48000);
+        c.rebuild_from_slots(48000, vec![]);
+        assert!(!c.move_slot(0, 5));
+        assert!(!c.move_slot(5, 0));
+    }
+
+    #[test]
+    fn move_slot_same_index_is_noop_true() {
+        use crate::effects::gain::{Gain, GainParams};
+        let mut c = EffectChain::new(48000);
+        c.rebuild_from_slots(48000, vec![(Box::new(Gain::new(GainParams::default())), true)]);
+        assert!(c.move_slot(0, 0));
     }
 
     #[test]
