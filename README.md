@@ -39,6 +39,7 @@ RatMic sends its processed audio to a **virtual audio cable** (a free driver you
 3. Run it.
 
    > 🛡️ The first time you run an unsigned app, Windows SmartScreen may say *"Windows protected your PC."* Click **More info → Run anyway**. (RatMic isn't code-signed yet — signing requires a paid certificate.)
+4. After that, RatMic **updates itself** — when a new version ships, it offers to download and install it on launch.
 
 ---
 
@@ -57,16 +58,17 @@ That's it. The routing-health dot in RatMic's title bar turns **green** when it 
 
 ## Using it
 
-1. Pick a preset from the left sidebar (try **Xbox 360 Lobby** or **Drive-Thru Speaker**).
+1. Pick a preset from the left sidebar (try **Xbox 360 Lobby**, **Drive-Thru Speaker**, or **Blown Mic** for that loud, clipping, blown-out sound).
 2. Hit **▶ START**.
 3. Talk. Your victims now hear the cursed version.
 4. Want to hear it yourself first? Pick a **Monitor** device (your headphones) and flip **▶ Listen** — you'll hear exactly what they hear, in real time. *(Don't set Monitor to your mic — that causes feedback; RatMic warns you if you do.)*
+5. Set a **global hotkey** (in the toolbar) to flip the effects on/off from anywhere — toggle or hold — so you can switch between your cursed and normal voice mid-call without alt-tabbing.
 
-Tweak any effect by clicking it in the chain, toggle effects on/off with the pill switches, or build your own and save it as a preset.
+Click any effect to expand its sliders, **drag effects by the grip to reorder** the chain, toggle them with the pill switches, or build your own mix and save it as a preset.
 
 ### Built-in presets
 
-Xbox 360 Lobby · Cheap Headset · Drive-Thru Speaker · Broken Radio · Discord Packet Loss · Deep Fried Mic · Tin Can · Underwater · Fan Noise Hell · 2007 Skype Call
+Xbox 360 Lobby · Cheap Headset · Drive-Thru Speaker · Broken Radio · Discord Packet Loss · Deep Fried Mic · Tin Can · Underwater · Fan Noise Hell · 2007 Skype Call · Blown Mic
 
 ### Effects
 
@@ -108,7 +110,7 @@ The audio engine runs on a dedicated worker thread, decoupled from the UI via lo
 
 - **No sound in Discord** — make sure Discord's input is `CABLE Output`, not `CABLE Input`. Input and Output are opposite ends of the same cable.
 - **The routing dot is amber** — your selected Output looks like real speakers, not a cable. Discord won't hear RatMic. Re-pick `CABLE Input` as the Output.
-- **Robotic echo / doubled audio** — your mic and the virtual cable may be running at different sample rates. Set both to 48000 Hz in Windows Sound settings.
+- **Robotic echo / doubled audio** — RatMic resamples mismatched device rates automatically, but if you still hear pitch/speed artifacts, set your mic and the cable to the same rate (48000 Hz) in Windows Sound settings.
 - **App won't launch after building** — confirm the Visual Studio C++ Build Tools are installed (the MSVC linker is required).
 
 ---
