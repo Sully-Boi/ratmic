@@ -30,6 +30,7 @@ pub fn run() {
             commands::add_effect,
             commands::remove_effect,
             commands::set_monitor_enabled,
+            commands::set_monitor_device,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

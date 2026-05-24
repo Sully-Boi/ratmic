@@ -73,6 +73,8 @@ export const ipc = {
     invoke<boolean>("remove_effect", { index }),
   setMonitorEnabled: (enabled: boolean) =>
     invoke<void>("set_monitor_enabled", { enabled }),
+  setMonitorDevice: (monitorId: string | null) =>
+    invoke<void>("set_monitor_device", { monitorId }),
 };
 
 export const events = {

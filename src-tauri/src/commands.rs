@@ -109,6 +109,20 @@ pub fn set_monitor_enabled(
 }
 
 #[tauri::command]
+pub fn set_monitor_device(
+    state: State<'_, AppState>,
+    monitor_id: Option<String>,
+) -> Result<(), String> {
+    let guard = state.engine.lock();
+    let Some(engine) = guard.as_ref() else {
+        return Err("engine not running".into());
+    };
+    engine
+        .set_monitor_device(monitor_id.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn stop_engine(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let mut guard = state.engine.lock();
     if let Some(engine) = guard.take() {

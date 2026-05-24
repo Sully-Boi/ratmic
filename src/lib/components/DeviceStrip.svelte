@@ -32,6 +32,19 @@
     }
   }
 
+  // Apply a monitor-device change to the running engine immediately (open/close
+  // the monitor backend live), so Listen works even if the device is picked
+  // after the engine has started.
+  async function handleMonitorChange() {
+    if ($engineRunning) {
+      try {
+        await ipc.setMonitorDevice($monitorDeviceId);
+      } catch (e) {
+        // engine may have stopped between check and call — ignore
+      }
+    }
+  }
+
   $: listenDisabled = !$monitorDeviceId || !$engineRunning;
 </script>
 
@@ -58,7 +71,7 @@
 
   <label>
     <span class="lbl">Monitor</span>
-    <select bind:value={$monitorDeviceId}>
+    <select bind:value={$monitorDeviceId} on:change={handleMonitorChange}>
       <option value={null}>— none —</option>
       {#each outputs as d}
         <option value={d.id}>{d.name}{d.is_default ? " (default)" : ""}</option>

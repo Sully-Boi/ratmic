@@ -38,7 +38,7 @@ pub struct AudioEngine {
     worker_handle: Option<thread::JoinHandle<()>>,
     stop_flag: Arc<AtomicBool>,
     backend: Arc<Mutex<Box<dyn AudioOutputBackend>>>,
-    monitor_backend: Option<Arc<Mutex<Box<dyn AudioOutputBackend>>>>,
+    monitor_slot: Arc<Mutex<Option<Box<dyn AudioOutputBackend>>>>,
     monitor_enabled: Arc<AtomicBool>,
     pub chain: Arc<Mutex<EffectChain>>,
 }
@@ -80,39 +80,19 @@ impl AudioEngine {
         let backend: Arc<Mutex<Box<dyn AudioOutputBackend>>> =
             Arc::new(Mutex::new(Box::new(backend)));
 
-        // Open monitor backend if a distinct monitor device is specified.
-        let monitor_backend: Option<Arc<Mutex<Box<dyn AudioOutputBackend>>>> =
-            if let Some(mon_id) = monitor_device_id {
-                // Only open if it differs from input/output to avoid conflicts.
-                if mon_id != input_id && mon_id != output_id {
-                    match find_output_device(mon_id) {
-                        Ok(mon_device) => {
-                            let mut mon = SystemDeviceBackend::new(mon_device);
-                            match mon.open(AudioFormat {
-                                sample_rate: INTERNAL_SAMPLE_RATE,
-                                channels: 1,
-                            }) {
-                                Ok(()) => {
-                                    log::info!("monitor backend opened: {mon_id}");
-                                    Some(Arc::new(Mutex::new(Box::new(mon) as Box<dyn AudioOutputBackend>)))
-                                }
-                                Err(e) => {
-                                    log::warn!("could not open monitor backend '{mon_id}': {e}");
-                                    None
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!("monitor device '{mon_id}' not found: {e}");
-                            None
-                        }
-                    }
-                } else {
-                    None
+        // Monitor backend lives in a hot-swappable slot so the device can be
+        // changed — or first selected — while the engine is already running.
+        let monitor_slot: Arc<Mutex<Option<Box<dyn AudioOutputBackend>>>> =
+            Arc::new(Mutex::new(None));
+        if let Some(mon_id) = monitor_device_id {
+            match open_monitor_backend(mon_id) {
+                Ok(b) => {
+                    log::info!("monitor backend opened: {mon_id}");
+                    *monitor_slot.lock() = Some(b);
                 }
-            } else {
-                None
-            };
+                Err(e) => log::warn!("could not open monitor backend '{mon_id}': {e}"),
+            }
+        }
 
         let monitor_enabled = Arc::new(AtomicBool::new(monitor_enabled_initial));
 
@@ -126,13 +106,13 @@ impl AudioEngine {
         let worker = {
             let stop = stop.clone();
             let backend = backend.clone();
-            let monitor_backend = monitor_backend.clone();
+            let monitor_slot = monitor_slot.clone();
             let monitor_enabled = monitor_enabled.clone();
             let chain = chain.clone();
             thread::Builder::new()
                 .name("ratmic-audio-worker".into())
                 .spawn(move || {
-                    worker_loop(in_cons, backend, monitor_backend, monitor_enabled, chain, meter_sink, stop);
+                    worker_loop(in_cons, backend, monitor_slot, monitor_enabled, chain, meter_sink, stop);
                 })
                 .context("spawning audio worker")?
         };
@@ -144,7 +124,7 @@ impl AudioEngine {
             worker_handle: Some(worker),
             stop_flag: stop,
             backend,
-            monitor_backend,
+            monitor_slot,
             monitor_enabled,
             chain,
         })
@@ -156,8 +136,8 @@ impl AudioEngine {
             let _ = handle.join();
         }
         self.backend.lock().close();
-        if let Some(mon) = &self.monitor_backend {
-            mon.lock().close();
+        if let Some(mut mon) = self.monitor_slot.lock().take() {
+            mon.close();
         }
         log::info!("audio engine stopped");
     }
@@ -167,9 +147,25 @@ impl AudioEngine {
         self.monitor_enabled.store(enabled, Ordering::Relaxed);
     }
 
-    /// Returns true if a monitor backend was successfully opened.
+    /// Open, change, or close the monitor backend on a running engine.
+    /// Pass `None` to close it. The new device is opened *before* the slot lock
+    /// is taken, so a failure leaves the existing monitor untouched.
+    pub fn set_monitor_device(&self, device_id: Option<&str>) -> Result<()> {
+        let new_backend = match device_id {
+            Some(id) => Some(open_monitor_backend(id)?),
+            None => None,
+        };
+        let mut slot = self.monitor_slot.lock();
+        if let Some(mut old) = slot.take() {
+            old.close();
+        }
+        *slot = new_backend;
+        Ok(())
+    }
+
+    /// Returns true if a monitor backend is currently open.
     pub fn has_monitor_backend(&self) -> bool {
-        self.monitor_backend.is_some()
+        self.monitor_slot.lock().is_some()
     }
 
     /// Atomically replace the chain (used by preset load).
@@ -212,7 +208,7 @@ impl AudioEngine {
 fn worker_loop<S: MeterSink>(
     mut consumer: RingConsumer,
     backend: Arc<Mutex<Box<dyn AudioOutputBackend>>>,
-    monitor_backend: Option<Arc<Mutex<Box<dyn AudioOutputBackend>>>>,
+    monitor_slot: Arc<Mutex<Option<Box<dyn AudioOutputBackend>>>>,
     monitor_enabled: Arc<AtomicBool>,
     chain: Arc<Mutex<EffectChain>>,
     sink: S,
@@ -249,8 +245,8 @@ fn worker_loop<S: MeterSink>(
         out_meter.process(chunk);
         let _ = backend.lock().write(chunk);
         if monitor_enabled.load(Ordering::Relaxed) {
-            if let Some(mon) = &monitor_backend {
-                let _ = mon.lock().write(chunk);
+            if let Some(mon) = monitor_slot.lock().as_mut() {
+                let _ = mon.write(chunk);
             }
         }
 
@@ -267,4 +263,19 @@ fn worker_loop<S: MeterSink>(
             last_meter = std::time::Instant::now();
         }
     }
+}
+
+/// Open a `SystemDeviceBackend` for the given output device id at the internal
+/// sample rate. Used both at startup and for live monitor-device changes.
+fn open_monitor_backend(device_id: &str) -> Result<Box<dyn AudioOutputBackend>> {
+    let device = find_output_device(device_id)
+        .with_context(|| format!("monitor device '{device_id}' not found"))?;
+    let mut backend = SystemDeviceBackend::new(device);
+    backend
+        .open(AudioFormat {
+            sample_rate: INTERNAL_SAMPLE_RATE,
+            channels: 1,
+        })
+        .with_context(|| format!("opening monitor backend '{device_id}'"))?;
+    Ok(Box::new(backend))
 }
