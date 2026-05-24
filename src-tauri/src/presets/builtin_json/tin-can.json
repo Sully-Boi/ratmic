@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "name": "Tin Can",
+  "description": "Narrow nasal resonance, like a string telephone.",
+  "effects": [
+    { "type": "bandpass",   "enabled": true, "params": { "lowCutHz": 800, "highCutHz": 2000, "midBoostDb": 10 } },
+    { "type": "bitcrusher", "enabled": true, "params": { "bitDepth": 10, "sampleRateHz": 22050, "mix": 0.5 } },
+    { "type": "clipper",    "enabled": true, "params": { "drive": 2.0, "hardClip": 0.7, "softClip": 0.3, "outputTrimDb": -3 } }
+  ]
+}

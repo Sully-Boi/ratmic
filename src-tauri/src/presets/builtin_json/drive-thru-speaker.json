@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "name": "Drive-Thru Speaker",
+  "description": "Honky midrange, blown speaker crackle.",
+  "effects": [
+    { "type": "gain",     "enabled": true, "params": { "gainDb": 4 } },
+    { "type": "bandpass", "enabled": true, "params": { "lowCutHz": 400, "highCutHz": 2500, "midBoostDb": 6 } },
+    { "type": "clipper",  "enabled": true, "params": { "drive": 3.0, "hardClip": 0.55, "softClip": 0.4, "outputTrimDb": -3 } },
+    { "type": "noise",    "enabled": true, "params": { "whiteAmount": 0.04, "humAmount": 0, "crackleRate": 5 } }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "Xbox 360 Lobby",
+  "description": "Compressed, clipped, noisy old voice chat.",
+  "effects": [
+    { "type": "gain",       "enabled": true, "params": { "gainDb": 8 } },
+    { "type": "bandpass",   "enabled": true, "params": { "lowCutHz": 300, "highCutHz": 3400, "midBoostDb": 4 } },
+    { "type": "bitcrusher", "enabled": true, "params": { "bitDepth": 8, "sampleRateHz": 11025, "mix": 0.8 } },
+    { "type": "clipper",    "enabled": true, "params": { "drive": 2.5, "hardClip": 0.65, "softClip": 0.3, "outputTrimDb": -4 } },
+    { "type": "packetLoss", "enabled": true, "params": { "dropChance": 0.08, "minDropMs": 30, "maxDropMs": 140, "stutterChance": 0.05 } }
+  ]
+}

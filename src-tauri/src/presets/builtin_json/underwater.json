@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "Underwater",
+  "description": "Muffled, dark, no highs.",
+  "effects": [
+    { "type": "bandpass", "enabled": true, "params": { "lowCutHz": 100, "highCutHz": 1500, "midBoostDb": -6 } },
+    { "type": "noise",    "enabled": true, "params": { "whiteAmount": 0.03, "humAmount": 0, "crackleRate": 0 } }
+  ]
+}

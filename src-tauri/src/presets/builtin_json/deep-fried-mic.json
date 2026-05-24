@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "name": "Deep Fried Mic",
+  "description": "Maximum overdrive. Limiter does heavy lifting.",
+  "effects": [
+    { "type": "gain",       "enabled": true, "params": { "gainDb": 18 } },
+    { "type": "clipper",    "enabled": true, "params": { "drive": 8.0, "hardClip": 0.4, "softClip": 0.6, "outputTrimDb": -4 } },
+    { "type": "bitcrusher", "enabled": true, "params": { "bitDepth": 4, "sampleRateHz": 11025, "mix": 0.9 } },
+    { "type": "noise",      "enabled": true, "params": { "whiteAmount": 0.05, "humAmount": 0, "crackleRate": 2 } }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "Discord Packet Loss",
+  "description": "Choppy connection with stuttery replays.",
+  "effects": [
+    { "type": "bandpass",   "enabled": true, "params": { "lowCutHz": 100, "highCutHz": 8000, "midBoostDb": 0 } },
+    { "type": "packetLoss", "enabled": true, "params": { "dropChance": 0.18, "minDropMs": 40, "maxDropMs": 180, "stutterChance": 0.15 } }
+  ]
+}

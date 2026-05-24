@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "name": "2007 Skype Call",
+  "description": "Narrowband, choppy, slightly clipped.",
+  "effects": [
+    { "type": "bandpass",   "enabled": true, "params": { "lowCutHz": 250, "highCutHz": 3000, "midBoostDb": 2 } },
+    { "type": "bitcrusher", "enabled": true, "params": { "bitDepth": 8, "sampleRateHz": 8000, "mix": 0.6 } },
+    { "type": "clipper",    "enabled": true, "params": { "drive": 1.8, "hardClip": 0.8, "softClip": 0.2, "outputTrimDb": -3 } },
+    { "type": "packetLoss", "enabled": true, "params": { "dropChance": 0.05, "minDropMs": 30, "maxDropMs": 100, "stutterChance": 0.1 } }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "name": "Broken Radio",
+  "description": "Lo-fi band-limited, crackling static.",
+  "effects": [
+    { "type": "bandpass",   "enabled": true, "params": { "lowCutHz": 500, "highCutHz": 3500, "midBoostDb": -4 } },
+    { "type": "bitcrusher", "enabled": true, "params": { "bitDepth": 10, "sampleRateHz": 16000, "mix": 0.7 } },
+    { "type": "noise",      "enabled": true, "params": { "whiteAmount": 0.08, "humAmount": 0, "crackleRate": 8 } },
+    { "type": "packetLoss", "enabled": true, "params": { "dropChance": 0.1, "minDropMs": 40, "maxDropMs": 120, "stutterChance": 0 } }
+  ]
+}
