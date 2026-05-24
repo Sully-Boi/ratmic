@@ -11,6 +11,7 @@ use commands::AppState;
 pub fn run() {
     env_logger::init();
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::load_settings,

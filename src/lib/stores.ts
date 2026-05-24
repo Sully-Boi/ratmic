@@ -18,3 +18,4 @@ export const selectedEffectIndex = writable<number | null>(null);
 export const presets = writable<PresetSummary[]>([]);
 export const monitorDeviceId = writable<string | null>(null);
 export const monitorEnabled = writable<boolean>(false);
+export const showSetup = writable<boolean>(false);

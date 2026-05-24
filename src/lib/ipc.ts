@@ -18,6 +18,7 @@ export interface Settings {
   monitor_device_id: string | null;
   safe_output_mode: boolean;
   last_preset_name: string | null;
+  onboarding_seen: boolean;
 }
 
 export interface PresetSummary {

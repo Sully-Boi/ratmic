@@ -1,9 +1,8 @@
 <script lang="ts">
   import { inputDeviceId, outputDeviceId, engineRunning, monitorDeviceId, monitorEnabled } from "../stores";
+  import { isVirtualCable } from "../format/devices";
 
   type Health = { color: "ok" | "warn" | "danger" | "muted"; label: string };
-
-  const VIRTUAL_KEYWORDS = ["cable", "virtual", "voicemeeter", "blackhole", "voicemod"];
 
   function evaluate(
     input: string | null,
@@ -19,8 +18,7 @@
     if (!output) return { color: "danger", label: "no output" };
     if (input && input === output) return { color: "danger", label: "in = out (feedback)" };
 
-    const lower = output.toLowerCase();
-    if (VIRTUAL_KEYWORDS.some((k) => lower.includes(k))) {
+    if (isVirtualCable(output)) {
       return { color: "ok", label: "routed to virtual cable" };
     }
     return { color: "warn", label: "output looks like speakers" };

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { ipc, type DeviceInfo } from "../ipc";
-  import { inputDeviceId, outputDeviceId, monitorDeviceId, monitorEnabled, engineRunning } from "../stores";
+  import { inputDeviceId, outputDeviceId, monitorDeviceId, monitorEnabled, engineRunning, showSetup } from "../stores";
   import PillToggle from "./PillToggle.svelte";
 
   let inputs: DeviceInfo[] = [];
@@ -77,6 +77,7 @@
   </div>
 
   <button class="refresh-btn" on:click={refresh} title="Refresh device list">↻</button>
+  <button class="setup-btn" on:click={() => showSetup.set(true)} title="Open setup wizard">?</button>
   {#if loadError}<span class="err">{loadError}</span>{/if}
 </div>
 
@@ -120,12 +121,16 @@
     color: var(--text-1);
     flex-shrink: 0;
   }
-  .refresh-btn {
+  .refresh-btn, .setup-btn {
     flex-shrink: 0;
     font-size: 14px;
     padding: 0 0.5rem;
     height: 26px;
     line-height: 1;
+  }
+  .setup-btn {
+    font-weight: 700;
+    min-width: 26px;
   }
   .err {
     color: var(--danger);

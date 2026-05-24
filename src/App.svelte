@@ -6,6 +6,7 @@
   import EffectChain from "./lib/components/EffectChain.svelte";
   import EffectParams from "./lib/components/EffectParams.svelte";
   import PresetSidebar from "./lib/components/PresetSidebar.svelte";
+  import SetupWizard from "./lib/components/SetupWizard.svelte";
   import { ipc, events } from "./lib/ipc";
   import {
     settings,
@@ -16,10 +17,15 @@
     engineError,
     monitorDeviceId,
     monitorEnabled,
+    showSetup,
   } from "./lib/stores";
+  import { isVirtualCable } from "./lib/format/devices";
   import type { UnlistenFn } from "@tauri-apps/api/event";
 
   let unsubs: UnlistenFn[] = [];
+
+  // setupOpen follows the showSetup store; closing also writes to the store.
+  $: setupOpen = $showSetup;
 
   onMount(async () => {
     const s = await ipc.loadSettings();
@@ -31,6 +37,20 @@
 
     engineRunning.set(await ipc.engineRunning());
 
+    // Smart defaults: only set if nothing was restored from saved settings.
+    const devices = await ipc.listDevices();
+    if (!s.input_device_id) {
+      const def = devices.find((d) => d.kind === "Input" && d.is_default) ?? devices.find((d) => d.kind === "Input");
+      if (def) inputDeviceId.set(def.id);
+    }
+    if (!s.output_device_id) {
+      const cable = devices.find((d) => d.kind === "Output" && isVirtualCable(d.name));
+      if (cable) outputDeviceId.set(cable.id);
+    }
+
+    // First-run: open wizard if not yet seen.
+    if (!s.onboarding_seen) showSetup.set(true);
+
     unsubs.push(await events.onMeters((m) => meters.set(m)));
     unsubs.push(
       await events.onEngineState((s) => {
@@ -39,6 +59,13 @@
       })
     );
   });
+
+  async function closeSetup() {
+    showSetup.set(false);
+    const s = await ipc.loadSettings();
+    s.onboarding_seen = true;
+    await ipc.saveSettings(s);
+  }
 
   onDestroy(() => unsubs.forEach((u) => u()));
 
@@ -97,6 +124,8 @@
     </button>
   </footer>
 </div>
+
+<SetupWizard open={setupOpen} onClose={closeSetup} />
 
 <style>
   .shell { display: grid; grid-template-rows: 36px 40px 1fr 64px; height: 100%; }

@@ -22,6 +22,8 @@ pub struct Settings {
     pub safe_output_mode: bool,
     #[serde(default)]
     pub last_preset_name: Option<String>,
+    #[serde(default)]
+    pub onboarding_seen: bool,
 }
 
 fn default_schema_version() -> u32 {
@@ -42,6 +44,7 @@ impl Default for Settings {
             monitor_device_id: None,
             safe_output_mode: true,
             last_preset_name: None,
+            onboarding_seen: false,
         }
     }
 }
@@ -102,6 +105,7 @@ mod tests {
             monitor_device_id: Some("Headphones (Realtek)".to_string()),
             safe_output_mode: false,
             last_preset_name: None,
+            onboarding_seen: false,
         };
         let json = serde_json::to_string(&s).unwrap();
         let parsed: Settings = serde_json::from_str(&json).unwrap();
@@ -133,6 +137,7 @@ mod tests {
             monitor_device_id: None,
             safe_output_mode: true,
             last_preset_name: Some("Tin Can".into()),
+            onboarding_seen: false,
         };
         let json = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&json).unwrap();

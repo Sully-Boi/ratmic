@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
-    "@tauri-apps/api": "^2.0.0"
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-opener": "^2.5.4"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
